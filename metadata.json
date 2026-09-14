@@ -1,0 +1,6 @@
+{
+  "name": "Synthetic Liquidity Scalper MT5 EA",
+  "description": "Professional MetaTrader 5 Expert Advisor and Quantitative Analysis Suite for Synthetic Indices (Boom, Crash, Volatility) featuring Smart Money Concepts, Order Blocks, Liquidity Sweeps, and Micro-Account Risk Architecture.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

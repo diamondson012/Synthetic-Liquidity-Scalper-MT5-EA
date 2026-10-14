@@ -95,7 +95,7 @@ public:
    }
 
    //--- Detect Liquidity Sweep / Stop Hunt (Wick pierced key level then closed back inside)
-   bool DetectLiquiditySweep(ENUM_TIMEFRAMES tf, int lookback_bars = 10, int &sweep_direction)
+   bool DetectLiquiditySweep(ENUM_TIMEFRAMES tf, int lookback_bars, int &sweep_direction)
    {
       sweep_direction = 0; // +1 = Bullish Sweep (pierced low & closed above), -1 = Bearish Sweep
       m_last_sweep_bullish = false;

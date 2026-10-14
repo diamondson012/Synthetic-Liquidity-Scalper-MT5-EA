@@ -1,5 +1,8 @@
 // MarketStructure.mqh - SMC Market Structure (HH, HL, LH, LL, BOS, CHOCH)
-export const CODE_MARKET_STRUCTURE_MQH = `//+------------------------------------------------------------------+
+export const CODE_MARKET_STRUCTURE_MQH = `
+#ifndef SLS_SOURCE_STRUCTURE
+#define SLS_SOURCE_STRUCTURE
+//+------------------------------------------------------------------+
 //|                                              MarketStructure.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -197,4 +200,6 @@ public:
       return false;
    }
 };
+
+#endif
 `;

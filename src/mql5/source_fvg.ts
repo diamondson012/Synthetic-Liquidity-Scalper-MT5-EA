@@ -1,5 +1,8 @@
 // FVGEngine.mqh - 3-Candle Fair Value Gap & Imbalance Detection
-export const CODE_FVG_ENGINE_MQH = `//+------------------------------------------------------------------+
+export const CODE_FVG_ENGINE_MQH = `
+#ifndef SLS_SOURCE_FVG
+#define SLS_SOURCE_FVG
+//+------------------------------------------------------------------+
 //|                                                    FVGEngine.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -150,4 +153,6 @@ public:
       return false;
    }
 };
+
+#endif
 `;

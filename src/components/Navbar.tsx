@@ -113,7 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {symMenuOpen && (
               <div className="absolute left-0 mt-1.5 w-56 rounded-xl bg-[#0b0f19]/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/80 z-50 py-1.5 overflow-hidden">
-                {(Object.keys(SYMBOL_SPECS_MAP) as SyntheticSymbol[]).map((symKey) => (
+                {(['BOOM_1000', 'CRASH_1000'] as SyntheticSymbol[]).map((symKey) => (
                   <button
                     key={symKey}
                     onClick={() => {

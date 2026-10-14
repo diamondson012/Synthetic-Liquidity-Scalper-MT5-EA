@@ -1,5 +1,8 @@
 // BacktestMetrics.mqh - Strategy Tester Quantitative Optimizer & Performance Metrics
-export const CODE_BACKTEST_METRICS_MQH = `//+------------------------------------------------------------------+
+export const CODE_BACKTEST_METRICS_MQH = `
+#ifndef SLS_SOURCE_BACKTEST
+#define SLS_SOURCE_BACKTEST
+//+------------------------------------------------------------------+
 //|                                              BacktestMetrics.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -112,4 +115,6 @@ public:
       return (pf * 2.0 + rf * 1.5 + wr * 3.0) / (1.0 + m_max_consecutive_losses * 0.2);
    }
 };
+
+#endif
 `;

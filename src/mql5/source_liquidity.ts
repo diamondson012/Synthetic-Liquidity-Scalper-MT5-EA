@@ -1,5 +1,8 @@
 // LiquidityEngine.mqh - Equal Highs/Lows, Liquidity Pools, Liquidity Sweeps / Stop Hunts
-export const CODE_LIQUIDITY_ENGINE_MQH = `//+------------------------------------------------------------------+
+export const CODE_LIQUIDITY_ENGINE_MQH = `
+#ifndef SLS_SOURCE_LIQUIDITY
+#define SLS_SOURCE_LIQUIDITY
+//+------------------------------------------------------------------+
 //|                                              LiquidityEngine.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -154,4 +157,6 @@ public:
    datetime GetSweepTime(void) const { return m_last_sweep_time; }
    double GetSweptLevel(void) const { return m_last_swept_level; }
 };
+
+#endif
 `;

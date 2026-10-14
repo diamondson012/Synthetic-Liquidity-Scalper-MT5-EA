@@ -1,5 +1,8 @@
 // Logger.mqh - CSV Trade Journal Exporter & Diagnostic Logging
-export const CODE_LOGGER_MQH = `//+------------------------------------------------------------------+
+export const CODE_LOGGER_MQH = `
+#ifndef SLS_SOURCE_LOGGER
+#define SLS_SOURCE_LOGGER
+//+------------------------------------------------------------------+
 //|                                                       Logger.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -123,4 +126,6 @@ public:
       }
    }
 };
+
+#endif
 `;

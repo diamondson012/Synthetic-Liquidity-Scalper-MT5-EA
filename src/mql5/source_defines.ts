@@ -1,5 +1,8 @@
 // Defines.mqh - Global Enums, Constants and Data Structures
-export const CODE_DEFINES_MQH = `//+------------------------------------------------------------------+
+export const CODE_DEFINES_MQH = `
+#ifndef SLS_SOURCE_DEFINES
+#define SLS_SOURCE_DEFINES
+//+------------------------------------------------------------------+
 //|                                                      Defines.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -176,4 +179,6 @@ struct SSymbolProfile
    double  contract_size;
    double  typical_spike_points;
 };
+
+#endif
 `;

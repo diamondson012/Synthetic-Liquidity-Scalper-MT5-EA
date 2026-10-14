@@ -1,5 +1,8 @@
 // RiskManager.mqh - Micro-Account Risk Architecture, Mathematical Safety, Target Objectives, No-Martingale
-export const CODE_RISK_MANAGER_MQH = `//+------------------------------------------------------------------+
+export const CODE_RISK_MANAGER_MQH = `
+#ifndef SLS_SOURCE_RISK
+#define SLS_SOURCE_RISK
+//+------------------------------------------------------------------+
 //|                                                  RiskManager.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -15,6 +18,7 @@ class CRiskManager
 {
 private:
    CSymbolManager*   m_symbol_mgr;
+   string m_state_key;
    double            m_risk_percent;
    double            m_daily_loss_limit_pct;
    double            m_daily_profit_target_pct;
@@ -87,6 +91,12 @@ public:
       m_start_target_balance = start_target;
       m_growth_target_balance = growth_target;
 
+      m_state_key = StringFormat("SLS_%I64d_%s_", AccountInfoInteger(ACCOUNT_LOGIN), m_symbol_mgr.GetSymbol());
+      if(MQLInfoInteger(MQL_TESTER))
+      {
+         m_state_key = "TEST_"+m_state_key;
+         GlobalVariablesDeleteAll(m_state_key);
+      }
       ResetDailySessionIfNeeded();
    }
 
@@ -103,9 +113,15 @@ public:
       {
          m_current_day = today_start;
          m_day_start_equity = AccountInfoDouble(ACCOUNT_EQUITY);
+         string key = m_state_key + IntegerToString((long)today_start);
+         if(GlobalVariableCheck(key)) m_day_start_equity = GlobalVariableGet(key);
+         else GlobalVariableSet(key, m_day_start_equity);
+
          if(m_week_start_equity <= 0.0 || dt.day_of_week == 1) // Monday
             m_week_start_equity = m_day_start_equity;
-         m_trades_today_count = 0;
+         string count_key = m_state_key + "count_" + IntegerToString((long)today_start);
+         m_trades_today_count = GlobalVariableCheck(count_key) ? (int)GlobalVariableGet(count_key) : 0;
+         m_consecutive_losses = GlobalVariableCheck(m_state_key+"losses_"+IntegerToString((long)m_current_day)) ? (int)GlobalVariableGet(m_state_key+"losses_"+IntegerToString((long)m_current_day)) : 0;
          m_daily_realized_pl = 0.0;
          m_is_paused = false;
          m_pause_reason = "";
@@ -133,6 +149,7 @@ public:
          return false;
       }
 
+      CheckLimits();
       // Check daily risk pause
       if(m_is_paused)
       {
@@ -161,35 +178,27 @@ public:
       // Desired Risk in Account Currency
       double allowed_risk_money = balance * (m_risk_percent / 100.0);
 
-      // Value per Point for 1 Lot
-      double tick_value = m_symbol_mgr.GetTickValue();
-      double tick_size  = m_symbol_mgr.GetTickSize();
-      double point_val  = (tick_size > 0.0) ? (tick_value * (point / tick_size)) : tick_value;
-
-      if(point_val <= 0.0) point_val = 1.0;
-
-      double sl_points = sl_dist / point;
-      double risk_per_lot = sl_points * point_val;
-
-      if(risk_per_lot <= 0.0)
-      {
-         fail_reason = "Unable to compute point risk per lot";
-         return false;
-      }
+      double loss = 0;
+      ENUM_ORDER_TYPE side = sl_price < entry_price ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+      if(!OrderCalcProfit(side, m_symbol_mgr.GetSymbol(), 1.0, entry_price, sl_price, loss) || loss >= 0)
+      { fail_reason="Broker risk calculation failed"; return false; }
+      double risk_per_lot = -loss;
 
       double raw_lot = allowed_risk_money / risk_per_lot;
       double min_lot = m_symbol_mgr.GetMinLot();
       double max_lot = m_symbol_mgr.GetMaxLot();
 
       // Normalize lots according to broker lot_step
-      double final_lot = m_symbol_mgr.NormalizeLots(raw_lot);
+      double step = SymbolInfoDouble(m_symbol_mgr.GetSymbol(), SYMBOL_VOLUME_STEP);
+      if(step <= 0 || raw_lot < min_lot) { fail_reason = "Minimum lot exceeds risk budget"; return false; }
+      double final_lot = MathFloor(MathMin(raw_lot, max_lot) / step) * step;
 
       // Calculate actual monetary loss if minimum lot is used
       double actual_money_risk = final_lot * risk_per_lot;
 
       // Micro Account Mathematical Safety Guard:
       // If the broker's minimum lot size would cause actual risk to exceed 2.5x allowed risk or 10% of account
-      if(actual_money_risk > allowed_risk_money * 2.5 || actual_money_risk > balance * 0.10)
+      if(actual_money_risk > allowed_risk_money + 0.0000001 || actual_money_risk > balance * 0.10)
       {
          fail_reason = StringFormat("ACCOUNT SIZE TOO SMALL FOR SAFE POSITION SIZING (MinLot %.2f would risk $%.2f > Max Allowed $%.2f)",
                                     min_lot, actual_money_risk, allowed_risk_money);
@@ -205,7 +214,7 @@ public:
    void OnTradeClosed(double profit_amount)
    {
       m_daily_realized_pl += profit_amount;
-      m_trades_today_count++;
+
 
       if(profit_amount < 0.0)
       {
@@ -221,6 +230,8 @@ public:
          m_consecutive_losses = 0;
       }
 
+      GlobalVariableSet(m_state_key+"losses_"+IntegerToString((long)m_current_day), m_consecutive_losses);
+      GlobalVariablesFlush();
       // Check Daily Loss Limit
       double current_equity = AccountInfoDouble(ACCOUNT_EQUITY);
       if(m_day_start_equity > 0.0)
@@ -232,6 +243,20 @@ public:
             m_pause_reason = StringFormat("DAILY RISK LIMIT REACHED (Drawdown %.2f%% >= Limit %.2f%%)", daily_drawdown_pct, m_daily_loss_limit_pct);
          }
       }
+   }
+
+   void OnTradeOpened(void)
+   {
+      m_trades_today_count++;
+      GlobalVariableSet(m_state_key+"count_"+IntegerToString((long)m_current_day), m_trades_today_count);
+      GlobalVariablesFlush();
+   }
+   void CheckLimits(void)
+   {
+      double eq = AccountInfoDouble(ACCOUNT_EQUITY);
+      if((m_day_start_equity > 0 && (m_day_start_equity-eq)/m_day_start_equity*100 >= m_daily_loss_limit_pct) ||
+         m_trades_today_count >= m_max_trades_per_day || m_consecutive_losses >= m_max_consecutive_losses)
+      { m_is_paused=true; m_pause_reason="RISK LIMIT"; }
    }
 
    //--- Setters & Controls
@@ -253,4 +278,6 @@ public:
       return MathMax(0.0, MathMin(100.0, progress));
    }
 };
+
+#endif
 `;

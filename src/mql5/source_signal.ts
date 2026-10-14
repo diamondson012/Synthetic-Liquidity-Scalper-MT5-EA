@@ -1,5 +1,8 @@
 // SignalEngine.mqh - 0-100 Confluence Scoring & "Why Trade / Why Not Trade" Natural Language Explanations
-export const CODE_SIGNAL_ENGINE_MQH = `//+------------------------------------------------------------------+
+export const CODE_SIGNAL_ENGINE_MQH = `
+#ifndef SLS_SOURCE_SIGNAL
+#define SLS_SOURCE_SIGNAL
+//+------------------------------------------------------------------+
 //|                                                 SignalEngine.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -103,7 +106,7 @@ public:
       string sym = m_symbol_mgr.GetSymbol();
       double current_price = (trade_direction == 1) ? SymbolInfoDouble(sym, SYMBOL_ASK) : SymbolInfoDouble(sym, SYMBOL_BID);
       double pt = m_symbol_mgr.GetPoint();
-      double atr = (m_momentum != NULL) ? m_momentum->GetATRM1() : (20.0 * pt);
+      double atr = (m_momentum != NULL) ? m_momentum.GetATRM1() : (20.0 * pt);
 
       string why_reasons[];
       string why_not_reasons[];
@@ -111,9 +114,9 @@ public:
       ArrayResize(why_not_reasons, 0);
 
       //--- 1. Market Structure Confluence (Max 20 pts)
-      ENUM_MARKET_BIAS bias_m15 = (m_struct_m15 != NULL) ? m_struct_m15->GetBias() : BIAS_NEUTRAL;
-      ENUM_MARKET_BIAS bias_m5  = (m_struct_m5 != NULL)  ? m_struct_m5->GetBias()  : BIAS_NEUTRAL;
-      ENUM_BREAK_TYPE break_m1  = (m_struct_m1 != NULL)  ? m_struct_m1->GetLastBreak() : BREAK_NONE;
+      ENUM_MARKET_BIAS bias_m15 = (m_struct_m15 != NULL) ? m_struct_m15.GetBias() : BIAS_NEUTRAL;
+      ENUM_MARKET_BIAS bias_m5  = (m_struct_m5 != NULL)  ? m_struct_m5.GetBias()  : BIAS_NEUTRAL;
+      ENUM_BREAK_TYPE break_m1  = (m_struct_m1 != NULL)  ? m_struct_m1.GetLastBreak() : BREAK_NONE;
 
       if(trade_direction == 1) // BUY
       {
@@ -176,7 +179,7 @@ public:
       if(m_liquidity != NULL)
       {
          int sweep_dir = 0;
-         if(m_liquidity->DetectLiquiditySweep(PERIOD_M1, 15, sweep_dir))
+         if(m_liquidity.DetectLiquiditySweep(PERIOD_M1, 15, sweep_dir))
          {
             if((trade_direction == 1 && sweep_dir == 1) || (trade_direction == -1 && sweep_dir == -1))
             {
@@ -188,7 +191,7 @@ public:
          {
             bool eqh = false, eql = false;
             double eqh_l = 0.0, eql_l = 0.0;
-            if(m_liquidity->FindEqualHighsLows(PERIOD_M1, eqh, eql, eqh_l, eql_l))
+            if(m_liquidity.FindEqualHighsLows(PERIOD_M1, eqh, eql, eqh_l, eql_l))
             {
                score.liquidity_score += 10.0;
                AddReason(why_reasons, eqh ? "Equal Highs Liquidity Pool Target (+10)" : "Equal Lows Liquidity Pool (+10)");
@@ -205,7 +208,7 @@ public:
       {
          SPriceZone matched_sd;
          ENUM_ZONE_TYPE target_zone = (trade_direction == 1) ? ZONE_DEMAND : ZONE_SUPPLY;
-         if(m_supply_demand->IsPriceInZone(current_price, target_zone, matched_sd))
+         if(m_supply_demand.IsPriceInZone(current_price, target_zone, matched_sd))
          {
             score.supply_demand_score = matched_sd.is_fresh ? 15.0 : 10.0;
             AddReason(why_reasons, (target_zone == ZONE_DEMAND) ? 
@@ -219,7 +222,7 @@ public:
       {
          SPriceZone matched_ob;
          ENUM_ZONE_TYPE target_ob = (trade_direction == 1) ? ZONE_BULLISH_ORDER_BLOCK : ZONE_BEARISH_ORDER_BLOCK;
-         if(m_order_block->IsPriceInOrderBlock(current_price, target_ob, matched_ob))
+         if(m_order_block.IsPriceInOrderBlock(current_price, target_ob, matched_ob))
          {
             score.order_block_score = matched_ob.is_fresh ? 15.0 : 10.0;
             AddReason(why_reasons, (target_ob == ZONE_BULLISH_ORDER_BLOCK) ? "Bullish Institutional Order Block Retest (+15)" : "Bearish Order Block Retest (+15)");
@@ -231,7 +234,7 @@ public:
       {
          SPriceZone matched_fvg;
          ENUM_ZONE_TYPE target_fvg = (trade_direction == 1) ? ZONE_BULLISH_FVG : ZONE_BEARISH_FVG;
-         if(m_fvg->IsPriceInFVG(current_price, target_fvg, matched_fvg))
+         if(m_fvg.IsPriceInFVG(current_price, target_fvg, matched_fvg))
          {
             score.fvg_score = matched_fvg.is_fresh ? 10.0 : 6.0;
             AddReason(why_reasons, (target_fvg == ZONE_BULLISH_FVG) ? "Bullish Fair Value Gap Imbalance Filled (+10)" : "Bearish FVG Imbalance Filled (+10)");
@@ -241,7 +244,7 @@ public:
       //--- 6. Candlestick Confirmation (Max 10 pts)
       if(m_candles != NULL)
       {
-         ENUM_CANDLE_PATTERN pat = m_candles->DetectPattern(PERIOD_M1);
+         ENUM_CANDLE_PATTERN pat = m_candles.DetectPattern(PERIOD_M1);
          if(pat != PATTERN_NONE)
          {
             bool bull_pat = (pat == PATTERN_BULLISH_ENGULFING || pat == PATTERN_HAMMER || pat == PATTERN_MORNING_STAR || pat == PATTERN_PIERCING || pat == PATTERN_MARUBOZU_BULL || pat == PATTERN_THREE_WHITE_SOLDIERS || pat == PATTERN_TWEEZER_BOTTOM || pat == PATTERN_INVERTED_HAMMER);
@@ -249,8 +252,8 @@ public:
 
             if((trade_direction == 1 && bull_pat) || (trade_direction == -1 && bear_pat))
             {
-               score.candle_score = MathMin(10.0, m_candles->GetScore());
-               AddReason(why_reasons, m_candles->GetPatternName());
+               score.candle_score = MathMin(10.0, m_candles.GetScore());
+               AddReason(why_reasons, m_candles.GetPatternName());
             }
          }
          else
@@ -262,7 +265,7 @@ public:
       //--- 7. Momentum & Volatility (Max 10 pts)
       if(m_momentum != NULL)
       {
-         double rsi = m_momentum->GetRSIM1();
+         double rsi = m_momentum.GetRSIM1();
          if((trade_direction == 1 && rsi > 45.0 && rsi < 70.0) || (trade_direction == -1 && rsi < 55.0 && rsi > 30.0))
          {
             score.momentum_score = 5.0;
@@ -294,7 +297,7 @@ public:
       if(trade_direction == 1) // BUY
       {
          SSwingPoint low_point;
-         if(m_struct_m1 != NULL && m_struct_m1->GetRecentLow(low_point, 0))
+         if(m_struct_m1 != NULL && m_struct_m1.GetRecentLow(low_point, 0))
             calc_sl = m_symbol_mgr.NormalizePrice(low_point.price - (atr * 0.5));
          else
             calc_sl = m_symbol_mgr.NormalizePrice(current_price - (atr * 1.5));
@@ -307,7 +310,7 @@ public:
       else // SELL
       {
          SSwingPoint high_point;
-         if(m_struct_m1 != NULL && m_struct_m1->GetRecentHigh(high_point, 0))
+         if(m_struct_m1 != NULL && m_struct_m1.GetRecentHigh(high_point, 0))
             calc_sl = m_symbol_mgr.NormalizePrice(high_point.price + (atr * 0.5));
          else
             calc_sl = m_symbol_mgr.NormalizePrice(current_price + (atr * 1.5));
@@ -346,4 +349,6 @@ private:
       return result;
    }
 };
+
+#endif
 `;

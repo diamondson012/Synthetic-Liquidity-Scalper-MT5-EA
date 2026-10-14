@@ -323,7 +323,7 @@ export const ChartSimulator: React.FC<ChartSimulatorProps> = ({
             }`}
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5 fill-slate-950" /> : <Play className="w-3.5 h-3.5 fill-slate-950" />}
-            <span>{isPlaying ? 'PAUSE TICK' : 'PLAY LIVE TICKS'}</span>
+            <span>{isPlaying ? 'PAUSE TICK' : 'PLAY SIMULATION'}</span>
           </button>
 
           <button

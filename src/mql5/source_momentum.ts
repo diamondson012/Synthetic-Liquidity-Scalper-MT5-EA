@@ -1,5 +1,8 @@
 // MomentumEngine.mqh - ATR, Volatility Filter, Multi-Timeframe Alignment
-export const CODE_MOMENTUM_ENGINE_MQH = `//+------------------------------------------------------------------+
+export const CODE_MOMENTUM_ENGINE_MQH = `
+#ifndef SLS_SOURCE_MOMENTUM
+#define SLS_SOURCE_MOMENTUM
+//+------------------------------------------------------------------+
 //|                                               MomentumEngine.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -115,4 +118,6 @@ public:
    double GetATRM15(void) const { return m_current_atr_m15; }
    double GetRSIM1(void) const { return m_current_rsi_m1; }
 };
+
+#endif
 `;

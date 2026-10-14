@@ -1,3 +1,4 @@
+import { entryAllowed, riskLots, settle, advanceTrade } from './utils/trading';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { ChartSimulator } from './components/ChartSimulator';
@@ -59,7 +60,9 @@ export default function App() {
     balance: 10.0,
     equity: 10.0,
     dailyProfit: 0.0,
-    dailyLossLimit: 0.50, // 5%
+    dailyLossLimitPercent: 5,
+    tradesToday: 0, maxTradesPerDay: 10, riskPercent: 1,
+    dailyTarget: 0, weeklyTarget: 0, weeklyProfit: 0, isMicroAccountMode: true,
     consecutiveLosses: 0,
     maxConsecutiveLosses: 3,
     status: 'ACTIVE',
@@ -88,6 +91,7 @@ export default function App() {
     setCandles(newCandles);
     refreshSMCAnalysis(newCandles);
     setActiveTrade(null);
+    setAccountState(acc => ({...acc, balance:10, equity:10, dailyProfit:0, consecutiveLosses:0, tradesToday:0, status:'ACTIVE'}));
   }, [selectedSymbol, selectedTimeframe, refreshSMCAnalysis]);
 
   // Initial SMC Analysis
@@ -97,8 +101,9 @@ export default function App() {
 
   // Tick & Bar Step Generator
   const stepNewBar = useCallback((forceSpike: boolean = false) => {
-    setCandles(prev => {
-      if (prev.length === 0) return prev;
+    {
+      const prev = candles;
+      if (prev.length === 0) return;
       const last = prev[prev.length - 1];
       const spec = SYMBOL_SPECS_MAP[selectedSymbol];
       const tfMinutes = selectedTimeframe === 'M1' ? 1 : (selectedTimeframe === 'M5' ? 5 : 15);
@@ -154,64 +159,21 @@ export default function App() {
 
       // Manage Active Trade on new price
       if (activeTrade) {
-        const pointValue = spec.tickValue * (spec.point / spec.tickSize);
-        const pnl = activeTrade.type === 'BUY'
-          ? (close - activeTrade.openPrice) / spec.point * pointValue * activeTrade.lotSize
-          : (activeTrade.openPrice - close) / spec.point * pointValue * activeTrade.lotSize;
-
-        const slDistance = Math.abs(activeTrade.openPrice - activeTrade.sl);
-        const rMultiple = slDistance > 0 ? (activeTrade.type === 'BUY' ? (close - activeTrade.openPrice) / slDistance : (activeTrade.openPrice - close) / slDistance) : 0;
-
-        // Check TP2 / SL Hit
-        if (activeTrade.type === 'BUY' && close >= activeTrade.tp2) {
-          // TP2 hit
-          setAccountState(acc => ({
-            ...acc,
-            balance: acc.balance + pnl,
-            equity: acc.balance + pnl,
-            dailyProfit: acc.dailyProfit + pnl,
-            consecutiveLosses: 0
-          }));
+        const result = advanceTrade(activeTrade, newCandle, spec.tickSize, spec.tickValue, spec.point);
+        if (result.exit !== null) {
+          const next = settle(accountState, result.trade.profit);
+          setAccountState(next);
           setActiveTrade(null);
-          setEaState('TARGET_ACHIEVED');
-        } else if (activeTrade.type === 'BUY' && close <= activeTrade.sl) {
-          // SL hit
-          setAccountState(acc => ({
-            ...acc,
-            balance: Math.max(1, acc.balance + pnl),
-            equity: Math.max(1, acc.balance + pnl),
-            dailyProfit: acc.dailyProfit + pnl,
-            consecutiveLosses: acc.consecutiveLosses + 1
-          }));
-          setActiveTrade(null);
-          setEaState('ANALYZING');
+          setEaState(next.status === 'TARGET_ACHIEVED' ? 'TARGET_ACHIEVED' : next.status === 'RISK_LIMIT' ? 'RISK_LIMIT' : 'ANALYZING');
         } else {
-          // Trade still active -> update state & BE lock
-          let newSl = activeTrade.sl;
-          let stage: any = activeTrade.stage;
-          if (rMultiple >= 1.0 && activeTrade.sl < activeTrade.openPrice) {
-            newSl = activeTrade.openPrice + (spec.point * 2); // Break-Even lock
-            stage = 'BE_LOCKED';
-          }
-
-          setActiveTrade(t => t ? ({
-            ...t,
-            profit: pnl,
-            rMultiple,
-            sl: newSl,
-            stage
-          }) : null);
-
-          setAccountState(acc => ({
-            ...acc,
-            equity: acc.balance + pnl
-          }));
+          setActiveTrade(result.trade);
+          setAccountState(acc => ({...acc, equity: acc.balance + result.trade.profit}));
         }
       } else {
         // Auto-Trigger trade if score >= 80 and active
         const analysis = analyzeSMCZones(updated, selectedTimeframe);
         if (analysis.confluence.totalScore >= 80 && accountState.status === 'ACTIVE') {
-          const isBuy = spec.spikeDirection === 'UP' || Math.random() > 0.4;
+          const isBuy = spec.spikeDirection === 'UP';
           const slDistance = spec.volatility * 15;
           const entry = close;
           const sl = isBuy ? entry - slDistance : entry + slDistance;
@@ -219,6 +181,8 @@ export default function App() {
           const tp2 = isBuy ? entry + slDistance * 2.0 : entry - slDistance * 2.0;
           const tp3 = isBuy ? entry + slDistance * 3.5 : entry - slDistance * 3.5;
 
+          const lotSize = riskLots(accountState.balance, accountState.riskPercent, slDistance, spec.tickSize, spec.tickValue, spec.minLot, spec.maxLot, spec.lotStep);
+          if (entryAllowed(accountState, isBuy ? 'BUY' : 'SELL') && lotSize > 0) {
           setActiveTrade({
             ticket: Math.floor(100000 + Math.random() * 900000),
             symbol: selectedSymbol,
@@ -228,20 +192,23 @@ export default function App() {
             tp1,
             tp2,
             tp3,
-            lotSize: spec.minLot,
-            openTime: new Date().toLocaleTimeString(),
+            lotSize,
+            initialSL: sl, currentPrice: entry, pips: 0, tp1ClosedPercent: 0, tp2ClosedPercent: 0, entryReason: "Simulated confluence",
+            openTime: nextTime,
             profit: 0,
             rMultiple: 0,
-            score: analysis.confluence.totalScore,
+            setupScore: analysis.confluence.totalScore,
             stage: 'OPEN'
           });
+          setAccountState(acc => ({...acc, tradesToday: acc.tradesToday + 1}));
           setEaState('TRADE_EXECUTED');
+          }
         }
       }
 
-      return updated;
-    });
-  }, [selectedSymbol, selectedTimeframe, activeTrade, accountState.status, refreshSMCAnalysis]);
+      setCandles(updated);
+    }
+  }, [selectedSymbol, selectedTimeframe, activeTrade, accountState, candles, refreshSMCAnalysis]);
 
   // Simulation Clock Timer
   useEffect(() => {
@@ -258,17 +225,13 @@ export default function App() {
   const handleTogglePause = () => {
     setAccountState(acc => ({
       ...acc,
-      status: acc.status === 'PAUSED' ? 'ACTIVE' : 'PAUSED'
+      status: (acc.status === 'RISK_LIMIT' || acc.status === 'TARGET_ACHIEVED') ? acc.status : acc.status === 'PAUSED' ? 'ACTIVE' : 'PAUSED'
     }));
   };
 
   const handleCloseAll = () => {
     if (activeTrade) {
-      setAccountState(acc => ({
-        ...acc,
-        balance: acc.equity,
-        dailyProfit: acc.dailyProfit + activeTrade.profit
-      }));
+      setAccountState(acc => settle(acc, activeTrade.profit));
       setActiveTrade(null);
       setEaState('ANALYZING');
     }
@@ -293,6 +256,7 @@ export default function App() {
       equity: 10.0,
       dailyProfit: 0.0,
       consecutiveLosses: 0,
+      tradesToday: 0,
       status: 'ACTIVE'
     }));
     setEaState('ANALYZING');
@@ -319,7 +283,7 @@ export default function App() {
 
       {/* Main Content Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 space-y-6">
-        
+        <p role="status" className="text-amber-300 text-sm">Demo candidate — generated prices and illustrative symbol specifications, no broker connection. Risk limits may prevent trades on small balances. Session resets on symbol/timeframe changes. MT5 validation pending.</p>
         {activeTab === 'simulator' && (
           <div className="space-y-6">
             {/* Chart + Decision Panel Layout */}

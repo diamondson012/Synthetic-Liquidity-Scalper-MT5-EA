@@ -1,5 +1,8 @@
 // LiquidityEngine.mqh - Equal Highs/Lows, Liquidity Pools, Liquidity Sweeps / Stop Hunts
-export const CODE_LIQUIDITY_ENGINE_MQH = `//+------------------------------------------------------------------+
+export const CODE_LIQUIDITY_ENGINE_MQH = `
+#ifndef SLS_SOURCE_LIQUIDITY
+#define SLS_SOURCE_LIQUIDITY
+//+------------------------------------------------------------------+
 //|                                              LiquidityEngine.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -92,7 +95,7 @@ public:
    }
 
    //--- Detect Liquidity Sweep / Stop Hunt (Wick pierced key level then closed back inside)
-   bool DetectLiquiditySweep(ENUM_TIMEFRAMES tf, int lookback_bars = 10, int &sweep_direction)
+   bool DetectLiquiditySweep(ENUM_TIMEFRAMES tf, int lookback_bars, int &sweep_direction)
    {
       sweep_direction = 0; // +1 = Bullish Sweep (pierced low & closed above), -1 = Bearish Sweep
       m_last_sweep_bullish = false;
@@ -154,4 +157,6 @@ public:
    datetime GetSweepTime(void) const { return m_last_sweep_time; }
    double GetSweptLevel(void) const { return m_last_swept_level; }
 };
+
+#endif
 `;

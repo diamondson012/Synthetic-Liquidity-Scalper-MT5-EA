@@ -1,5 +1,8 @@
 // CandlePatterns.mqh - Comprehensive Candlestick Pattern Engine & Confidence Weighting
-export const CODE_CANDLE_PATTERNS_MQH = `//+------------------------------------------------------------------+
+export const CODE_CANDLE_PATTERNS_MQH = `
+#ifndef SLS_SOURCE_CANDLES
+#define SLS_SOURCE_CANDLES
+//+------------------------------------------------------------------+
 //|                                               CandlePatterns.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -221,4 +224,6 @@ public:
    double GetScore(void) const { return m_pattern_score; }
    string GetPatternName(void) const { return m_pattern_name; }
 };
+
+#endif
 `;

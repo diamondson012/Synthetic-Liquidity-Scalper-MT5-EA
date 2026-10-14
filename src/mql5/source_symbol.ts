@@ -1,5 +1,8 @@
 // SymbolManager.mqh - Dynamic Broker Symbol Specifications & Synthetic Classification
-export const CODE_SYMBOL_MANAGER_MQH = `//+------------------------------------------------------------------+
+export const CODE_SYMBOL_MANAGER_MQH = `
+#ifndef SLS_SOURCE_SYMBOL
+#define SLS_SOURCE_SYMBOL
+//+------------------------------------------------------------------+
 //|                                                SymbolManager.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -137,4 +140,6 @@ public:
       return true;
    }
 };
+
+#endif
 `;

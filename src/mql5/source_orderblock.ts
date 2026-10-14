@@ -1,5 +1,8 @@
 // OrderBlock.mqh - Institutional Order Block Detection (Bullish & Bearish)
-export const CODE_ORDER_BLOCK_MQH = `//+------------------------------------------------------------------+
+export const CODE_ORDER_BLOCK_MQH = `
+#ifndef SLS_SOURCE_ORDERBLOCK
+#define SLS_SOURCE_ORDERBLOCK
+//+------------------------------------------------------------------+
 //|                                                   OrderBlock.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -158,4 +161,6 @@ public:
       return false;
    }
 };
+
+#endif
 `;

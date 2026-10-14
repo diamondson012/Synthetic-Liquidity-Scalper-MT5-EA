@@ -1,5 +1,8 @@
 // Dashboard.mqh - On-Chart HUD, Interactive Buttons, Visual SMC Overlays (Zones, OBs, FVGs, BOS/CHOCH)
-export const CODE_DASHBOARD_MQH = `//+------------------------------------------------------------------+
+export const CODE_DASHBOARD_MQH = `
+#ifndef SLS_SOURCE_DASHBOARD
+#define SLS_SOURCE_DASHBOARD
+//+------------------------------------------------------------------+
 //|                                                    Dashboard.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -234,4 +237,6 @@ private:
       }
    }
 };
+
+#endif
 `;

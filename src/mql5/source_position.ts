@@ -1,5 +1,8 @@
 // PositionManager.mqh - 3-Stage TP, Partial Close, Break-Even Lock, Structure & ATR Trailing Stop
-export const CODE_POSITION_MANAGER_MQH = `//+------------------------------------------------------------------+
+export const CODE_POSITION_MANAGER_MQH = `
+#ifndef SLS_SOURCE_POSITION
+#define SLS_SOURCE_POSITION
+//+------------------------------------------------------------------+
 //|                                              PositionManager.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -76,7 +79,7 @@ public:
 
       m_trade.SetExpertMagicNumber(m_magic);
       m_trade.SetDeviationInPoints(10);
-      m_trade.SetTypeFilling(ORDER_FILLING_FOK);
+      m_trade.SetTypeFillingBySymbol(m_symbol_mgr.GetSymbol());
    }
 
    //--- Active Position Management Loop on every tick
@@ -114,13 +117,15 @@ public:
             }
          }
 
-         // Calculate Risk Distance (1R)
-         double initial_risk_points = 0.0;
-         if(pos_type == POSITION_TYPE_BUY && sl_price > 0.0 && sl_price < open_price)
-            initial_risk_points = (open_price - sl_price) / pt;
-         else if(pos_type == POSITION_TYPE_SELL && sl_price > open_price)
-            initial_risk_points = (sl_price - open_price) / pt;
-
+         // Persist original risk by account and position identifier across restarts.
+         string risk_key = StringFormat("SLS_R_%I64d_%I64d", AccountInfoInteger(ACCOUNT_LOGIN), PositionGetInteger(POSITION_IDENTIFIER));
+         double initial_risk_points = GlobalVariableCheck(risk_key) ? GlobalVariableGet(risk_key) : 0.0;
+         if(initial_risk_points <= 0 && sl_price > 0 &&
+            ((pos_type == POSITION_TYPE_BUY && sl_price < open_price) || (pos_type == POSITION_TYPE_SELL && sl_price > open_price)))
+         {
+            initial_risk_points = MathAbs(open_price-sl_price)/pt;
+            GlobalVariableSet(risk_key, initial_risk_points);
+         }
          if(initial_risk_points <= 0.0) continue;
 
          double current_profit_points = (pos_type == POSITION_TYPE_BUY) ? ((current_price - open_price) / pt) : ((open_price - current_price) / pt);
@@ -137,8 +142,7 @@ public:
                (pos_type == POSITION_TYPE_SELL && (sl_price > be_target || sl_price == 0.0)))
             {
                PrintFormat("[CPositionManager] Moving ticket %d to Break-Even at %.5f (+%.1fR achieved)", ticket, be_target, current_r);
-               m_trade.PositionModify(ticket, be_target, tp_price);
-               sl_price = be_target;
+               if(m_trade.PositionModify(ticket, be_target, tp_price) && m_trade.ResultRetcode() == TRADE_RETCODE_DONE) sl_price = be_target;
             }
          }
 
@@ -152,8 +156,7 @@ public:
             if((pos_type == POSITION_TYPE_BUY && sl_price < lock_1r) ||
                (pos_type == POSITION_TYPE_SELL && sl_price > lock_1r))
             {
-               m_trade.PositionModify(ticket, lock_1r, tp_price);
-               sl_price = lock_1r;
+               if(m_trade.PositionModify(ticket, lock_1r, tp_price) && m_trade.ResultRetcode() == TRADE_RETCODE_DONE) sl_price = lock_1r;
             }
          }
          else if(current_r >= 1.5)
@@ -165,8 +168,7 @@ public:
             if((pos_type == POSITION_TYPE_BUY && sl_price < lock_half_r) ||
                (pos_type == POSITION_TYPE_SELL && sl_price > lock_half_r))
             {
-               m_trade.PositionModify(ticket, lock_half_r, tp_price);
-               sl_price = lock_half_r;
+               if(m_trade.PositionModify(ticket, lock_half_r, tp_price) && m_trade.ResultRetcode() == TRADE_RETCODE_DONE) sl_price = lock_half_r;
             }
          }
 
@@ -239,4 +241,6 @@ public:
       }
    }
 };
+
+#endif
 `;

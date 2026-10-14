@@ -99,7 +99,7 @@ export const ALL_MQL5_FILES: MQL5File[] = [
   {
     name: 'PositionManager.mqh',
     path: 'Include/SyntheticScalper/PositionManager.mqh',
-    description: '3-Stage Take Profit partials (30%/40%/30%), Break-Even lock at +1R, profit locks, and dynamic trailing stop.',
+    description: 'Single TP2 exit, break-even lock, profit locks and trailing stop. Partial closes disabled in this candidate.',
     category: 'Management',
     code: CODE_POSITION_MANAGER_MQH
   },
@@ -163,8 +163,9 @@ INSTALLATION INSTRUCTIONS:
 5. In MetaTrader 5, press F4 to open MetaEditor.
 6. In MetaEditor Navigator, find Experts -> SyntheticLiquidityScalper.mq5.
 7. Click Compile (or press F7). Ensure 0 errors and 0 warnings.
-8. Return to MT5, find the EA in Navigator -> Expert Advisors, and drag it onto your Boom 1000 / Crash 1000 / Synthetic chart (M1 timeframe).
-9. Make sure "Allow Algo Trading" is enabled in MT5 toolbar.
+8. Return to MT5, find the EA in Navigator -> Expert Advisors, and drag it onto your Boom 1000 Index / Crash 1000 Index DEMO chart (M1 timeframe).
+9. This candidate rejects real accounts. Partial closing is not implemented and must remain disabled.
+10. Make sure "Allow Algo Trading" is enabled in MT5 toolbar.
 `
   );
 

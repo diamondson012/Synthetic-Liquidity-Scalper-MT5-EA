@@ -1,5 +1,8 @@
 // SupplyDemand.mqh - Supply & Demand Zone Detection and Scoring (+20 fresh, +15 rejection, +20 BOS etc.)
-export const CODE_SUPPLY_DEMAND_MQH = `//+------------------------------------------------------------------+
+export const CODE_SUPPLY_DEMAND_MQH = `
+#ifndef SLS_SOURCE_SUPPLYDEMAND
+#define SLS_SOURCE_SUPPLYDEMAND
+//+------------------------------------------------------------------+
 //|                                                 SupplyDemand.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -161,4 +164,6 @@ public:
       return false;
    }
 };
+
+#endif
 `;

@@ -11,22 +11,22 @@ export const CODE_SYNTHETIC_LIQUIDITY_SCALPER_MQ5 = `//+------------------------
 #property description "Features Smart Money Concepts, Order Blocks, Liquidity Sweeps, Dynamic Risk & Micro Accounts"
 
 //--- Include Modular Architecture
-#include "Include/SyntheticScalper/Defines.mqh"
-#include "Include/SyntheticScalper/SymbolManager.mqh"
-#include "Include/SyntheticScalper/MarketStructure.mqh"
-#include "Include/SyntheticScalper/LiquidityEngine.mqh"
-#include "Include/SyntheticScalper/SupplyDemand.mqh"
-#include "Include/SyntheticScalper/OrderBlock.mqh"
-#include "Include/SyntheticScalper/FVGEngine.mqh"
-#include "Include/SyntheticScalper/CandlePatterns.mqh"
-#include "Include/SyntheticScalper/MomentumEngine.mqh"
-#include "Include/SyntheticScalper/RiskManager.mqh"
-#include "Include/SyntheticScalper/PositionManager.mqh"
-#include "Include/SyntheticScalper/TradeEngine.mqh"
-#include "Include/SyntheticScalper/SignalEngine.mqh"
-#include "Include/SyntheticScalper/Dashboard.mqh"
-#include "Include/SyntheticScalper/Logger.mqh"
-#include "Include/SyntheticScalper/BacktestMetrics.mqh"
+#include <SyntheticScalper/Defines.mqh>
+#include <SyntheticScalper/SymbolManager.mqh>
+#include <SyntheticScalper/MarketStructure.mqh>
+#include <SyntheticScalper/LiquidityEngine.mqh>
+#include <SyntheticScalper/SupplyDemand.mqh>
+#include <SyntheticScalper/OrderBlock.mqh>
+#include <SyntheticScalper/FVGEngine.mqh>
+#include <SyntheticScalper/CandlePatterns.mqh>
+#include <SyntheticScalper/MomentumEngine.mqh>
+#include <SyntheticScalper/RiskManager.mqh>
+#include <SyntheticScalper/PositionManager.mqh>
+#include <SyntheticScalper/TradeEngine.mqh>
+#include <SyntheticScalper/SignalEngine.mqh>
+#include <SyntheticScalper/Dashboard.mqh>
+#include <SyntheticScalper/Logger.mqh>
+#include <SyntheticScalper/BacktestMetrics.mqh>
 
 //+------------------------------------------------------------------+
 //| USER INPUT PARAMETERS                                            |
@@ -80,7 +80,7 @@ input group "=== TAKE PROFIT & PARTIAL CLOSE ==="
 input double              InpTP1_R_Ratio          = 1.2;                    // Take Profit 1 Target (R Multiple)
 input double              InpTP2_R_Ratio          = 2.0;                    // Take Profit 2 Target (R Multiple)
 input double              InpTP3_R_Ratio          = 3.0;                    // Take Profit 3 Target (R Multiple)
-input bool                InpUsePartialClose      = true;                   // Enable Partial Profit Taking
+input bool                InpUsePartialClose      = false;                   // Enable Partial Profit Taking
 input double              InpTP1_ClosePercent     = 30.0;                   // TP1 Partial Close (%)
 input double              InpTP2_ClosePercent     = 40.0;                   // TP2 Partial Close (%)
 input double              InpTP3_ClosePercent     = 30.0;                   // TP3 Partial Close (%)
@@ -125,6 +125,15 @@ CBacktestMetrics  g_backtest;
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   // Candidate release: never place real-money trades.
+   if(AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO && !MQLInfoInteger(MQL_TESTER))
+      return INIT_FAILED;
+   if(_Symbol != "Boom 1000 Index" && _Symbol != "Crash 1000 Index") return INIT_PARAMETERS_INCORRECT;
+   if(InpCustomSymbol != "" && InpCustomSymbol != _Symbol) return INIT_PARAMETERS_INCORRECT;
+   if(InpRiskPerTradePct <= 0 || InpRiskPerTradePct > 5 || InpDailyLossLimitPct <= 0 ||
+      InpMaxTradesPerDay < 1 || InpMaxOpenTrades != 1 || InpMaxConsecutiveLosses < 1 ||
+      InpUsePartialClose) return INIT_PARAMETERS_INCORRECT;
+
    EventSetTimer(1); // 1-second timer for dashboard & state machine
 
    // 1. Initialize Symbol Manager
@@ -135,41 +144,41 @@ int OnInit()
    }
 
    // 2. Initialize SMC Sub-Engines
-   g_struct_m15.Init(&g_symbol_mgr, InpSwingLeftBars, InpSwingRightBars);
-   g_struct_m5.Init(&g_symbol_mgr, InpSwingLeftBars, InpSwingRightBars);
-   g_struct_m1.Init(&g_symbol_mgr, InpSwingLeftBars, InpSwingRightBars);
-   g_liquidity.Init(&g_symbol_mgr, &g_struct_m1, 5.0);
-   g_supply_demand.Init(&g_symbol_mgr, InpMinImpulseATRMult);
-   g_order_block.Init(&g_symbol_mgr, 50, InpOBImpulseRatio);
-   g_fvg.Init(&g_symbol_mgr, InpFVGMinPoints);
-   g_candles.Init(&g_symbol_mgr);
-   g_momentum.Init(&g_symbol_mgr, 14);
+   g_struct_m15.Init(GetPointer(g_symbol_mgr), InpSwingLeftBars, InpSwingRightBars);
+   g_struct_m5.Init(GetPointer(g_symbol_mgr), InpSwingLeftBars, InpSwingRightBars);
+   g_struct_m1.Init(GetPointer(g_symbol_mgr), InpSwingLeftBars, InpSwingRightBars);
+   g_liquidity.Init(GetPointer(g_symbol_mgr), GetPointer(g_struct_m1), 5.0);
+   g_supply_demand.Init(GetPointer(g_symbol_mgr), InpMinImpulseATRMult);
+   g_order_block.Init(GetPointer(g_symbol_mgr), 50, InpOBImpulseRatio);
+   g_fvg.Init(GetPointer(g_symbol_mgr), InpFVGMinPoints);
+   g_candles.Init(GetPointer(g_symbol_mgr));
+   if(!g_momentum.Init(GetPointer(g_symbol_mgr), 14)) return INIT_FAILED;
 
    // 3. Initialize Risk & Position Managers
    double effective_risk = InpRiskPerTradePct;
    if(g_symbol_mgr.IsBoom()) effective_risk *= InpBoomRiskMultiplier;
    if(g_symbol_mgr.IsCrash()) effective_risk *= InpCrashRiskMultiplier;
 
-   g_risk_mgr.Init(&g_symbol_mgr, effective_risk, InpDailyLossLimitPct, InpDailyProfitTargetPct,
+   g_risk_mgr.Init(GetPointer(g_symbol_mgr), effective_risk, InpDailyLossLimitPct, InpDailyProfitTargetPct,
                    InpMaxConsecutiveLosses, InpMaxTradesPerDay, InpMaxOpenTrades,
                    InpMicroAccountMode, InpStartTargetBalance, InpGrowthTargetBalance);
 
-   g_pos_mgr.Init(&g_symbol_mgr, &g_struct_m1, InpMagicNumber, InpUseBreakEven, InpBETriggerR,
+   g_pos_mgr.Init(GetPointer(g_symbol_mgr), GetPointer(g_struct_m1), InpMagicNumber, InpUseBreakEven, InpBETriggerR,
                   InpUseTrailingStop, InpUsePartialClose, InpTP1_ClosePercent, InpTP2_ClosePercent, InpTP3_ClosePercent,
                   InpMaxTradeDurationMin);
 
-   g_trade_engine.Init(&g_symbol_mgr, &g_risk_mgr, InpMagicNumber, InpBoomCrashCooldownSec);
+   g_trade_engine.Init(GetPointer(g_symbol_mgr), GetPointer(g_risk_mgr), InpMagicNumber, InpBoomCrashCooldownSec);
 
    double min_score = InpMinimumSetupScore;
    if(InpTradingMode == MODE_CONSERVATIVE) min_score = MathMax(min_score, 80.0);
    else if(InpTradingMode == MODE_AGGRESSIVE) min_score = MathMin(min_score, 60.0);
 
-   g_signal_engine.Init(&g_symbol_mgr, &g_struct_m15, &g_struct_m5, &g_struct_m1,
-                        &g_liquidity, &g_supply_demand, &g_order_block, &g_fvg,
-                        &g_candles, &g_momentum, min_score, InpAllowCounterTrend);
+   g_signal_engine.Init(GetPointer(g_symbol_mgr), GetPointer(g_struct_m15), GetPointer(g_struct_m5), GetPointer(g_struct_m1),
+                        GetPointer(g_liquidity), GetPointer(g_supply_demand), GetPointer(g_order_block), GetPointer(g_fvg),
+                        GetPointer(g_candles), GetPointer(g_momentum), min_score, InpAllowCounterTrend);
 
-   g_dashboard.Init(&g_symbol_mgr, &g_risk_mgr, InpShowDashboard, InpShowChartObjects);
-   g_logger.Init(&g_symbol_mgr, InpCSVFileName, InpEnableCSVJournal);
+   g_dashboard.Init(GetPointer(g_symbol_mgr), GetPointer(g_risk_mgr), InpShowDashboard, InpShowChartObjects);
+   g_logger.Init(GetPointer(g_symbol_mgr), InpCSVFileName, InpEnableCSVJournal);
    g_backtest.Init(AccountInfoDouble(ACCOUNT_BALANCE));
 
    Print("[OnInit] Synthetic Liquidity Scalper initialized successfully for ", g_symbol_mgr.GetSymbol());
@@ -194,14 +203,16 @@ void OnTick()
 {
    // 1. Refresh Daily Risk State
    g_risk_mgr.ResetDailySessionIfNeeded();
+   g_risk_mgr.CheckLimits();
 
    // 2. Update Indicators & Volatility
-   g_momentum.Update();
+   bool indicators_ready = g_momentum.Update();
    double current_atr = g_momentum.GetATRM1();
 
    // 3. Manage Open Positions (Break-even, Trailing, Max Duration)
    g_pos_mgr.ManagePositions(current_atr);
 
+   if(!indicators_ready) return;
    // 4. Check If New Trades Are Permitted
    if(g_risk_mgr.IsPaused()) return;
    if(PositionsTotal() >= InpMaxOpenTrades) return;
@@ -282,12 +293,30 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
    {
       if(HistoryDealSelect(trans.deal))
       {
+         if(HistoryDealGetInteger(trans.deal, DEAL_MAGIC) != (long)InpMagicNumber ||
+            HistoryDealGetString(trans.deal, DEAL_SYMBOL) != g_symbol_mgr.GetSymbol()) return;
+         if(InpEnableCSVJournal)
+         {
+            int log = FileOpen("SLS_Deals_"+IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN))+".csv", FILE_READ|FILE_WRITE|FILE_CSV|FILE_SHARE_READ);
+            if(log != INVALID_HANDLE)
+            {
+               FileSeek(log,0,SEEK_END);
+               FileWrite(log, trans.deal, HistoryDealGetInteger(trans.deal,DEAL_TIME),
+                  HistoryDealGetString(trans.deal,DEAL_SYMBOL), HistoryDealGetInteger(trans.deal,DEAL_ENTRY),
+                  HistoryDealGetInteger(trans.deal,DEAL_TYPE), HistoryDealGetDouble(trans.deal,DEAL_VOLUME),
+                  HistoryDealGetDouble(trans.deal,DEAL_PRICE), HistoryDealGetDouble(trans.deal,DEAL_PROFIT),
+                  HistoryDealGetDouble(trans.deal,DEAL_COMMISSION), HistoryDealGetDouble(trans.deal,DEAL_SWAP),
+                  HistoryDealGetDouble(trans.deal,DEAL_FEE));
+               FileFlush(log); FileClose(log);
+            }
+            else Print("Deal journal open failed: ",GetLastError());
+         }
          long deal_entry = HistoryDealGetInteger(trans.deal, DEAL_ENTRY);
-         if(deal_entry == DEAL_ENTRY_OUT)
+         if(deal_entry == DEAL_ENTRY_OUT || deal_entry == DEAL_ENTRY_OUT_BY)
          {
             double profit = HistoryDealGetDouble(trans.deal, DEAL_PROFIT) + 
                             HistoryDealGetDouble(trans.deal, DEAL_SWAP) + 
-                            HistoryDealGetDouble(trans.deal, DEAL_COMMISSION);
+                            HistoryDealGetDouble(trans.deal, DEAL_COMMISSION) + HistoryDealGetDouble(trans.deal, DEAL_FEE);
 
             g_risk_mgr.OnTradeClosed(profit);
             g_backtest.OnTradeClosed(profit);

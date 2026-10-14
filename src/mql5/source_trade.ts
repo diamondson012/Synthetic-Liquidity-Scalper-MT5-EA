@@ -1,5 +1,8 @@
 // TradeEngine.mqh - Order Execution, Anti-Chasing, Anti-Duplicate Signal ID, Boom/Crash Execution
-export const CODE_TRADE_ENGINE_MQH = `//+------------------------------------------------------------------+
+export const CODE_TRADE_ENGINE_MQH = `
+#ifndef SLS_SOURCE_TRADE
+#define SLS_SOURCE_TRADE
+//+------------------------------------------------------------------+
 //|                                                  TradeEngine.mqh |
 //|                        Synthetic Liquidity Scalper MT5 EA        |
 //|                        Copyright 2026, Quant SMC Engineering     |
@@ -49,7 +52,7 @@ public:
 
       m_trade.SetExpertMagicNumber(m_magic);
       m_trade.SetDeviationInPoints(15);
-      m_trade.SetTypeFilling(ORDER_FILLING_FOK);
+      m_trade.SetTypeFillingBySymbol(m_symbol_mgr.GetSymbol());
    }
 
    //--- Execute Buy or Sell with Full Guardrails
@@ -97,10 +100,14 @@ public:
       double current_bid = SymbolInfoDouble(sym, SYMBOL_BID);
       double entry_price = (direction == 1) ? current_ask : current_bid;
 
+      if(direction != 1 && direction != -1) return false;
+      double min_dist = SymbolInfoInteger(sym, SYMBOL_TRADE_STOPS_LEVEL) * m_symbol_mgr.GetPoint();
+      if((direction == 1 && (sl_price >= current_bid-min_dist || tp2_price <= current_bid+min_dist)) ||
+         (direction == -1 && (sl_price <= current_ask+min_dist || tp2_price >= current_ask-min_dist))) return false;
       // 4. Calculate Risk-Adjusted Position Size
       double lot_size = 0.0;
       double monetary_risk = 0.0;
-      if(!m_risk_mgr->CalculateLotSize(entry_price, sl_price, lot_size, monetary_risk, fail_reason))
+      if(!m_risk_mgr.CalculateLotSize(entry_price, sl_price, lot_size, monetary_risk, fail_reason))
       {
          PrintFormat("[CTradeEngine] Risk Blocked: %s", fail_reason);
          return false;
@@ -110,18 +117,20 @@ public:
       bool success = false;
       string comment = StringFormat("SLS_%s_Sc%.0f", (direction == 1 ? "B" : "S"), score.total_score);
 
-      for(int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++)
+      for(int attempt = 1; attempt <= 1; attempt++)
       {
          if(direction == 1)
             success = m_trade.Buy(lot_size, sym, entry_price, sl_price, tp2_price, comment);
          else
             success = m_trade.Sell(lot_size, sym, entry_price, sl_price, tp2_price, comment);
 
+         success = success && (m_trade.ResultRetcode() == TRADE_RETCODE_DONE || m_trade.ResultRetcode() == TRADE_RETCODE_DONE_PARTIAL);
          if(success)
          {
             ulong deal_ticket = m_trade.ResultDeal();
             PrintFormat("[CTradeEngine] ORDER FILLED! Deal: %d | %s %.2f lots @ %.5f | SL: %.5f | TP: %.5f | Risk: $%.2f",
                         deal_ticket, (direction == 1 ? "BUY" : "SELL"), lot_size, entry_price, sl_price, tp2_price, monetary_risk);
+            m_risk_mgr.OnTradeOpened();
             m_last_signal_id = signal_id;
             m_last_trade_time = now;
             break;
@@ -143,4 +152,6 @@ public:
    bool IsBuyEnabled(void) const { return m_buy_enabled; }
    bool IsSellEnabled(void) const { return m_sell_enabled; }
 };
+
+#endif
 `;
